@@ -1,15 +1,15 @@
-name: Collect Telegram Replies
+name: Nightly Summary
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'  # Every hour
+    - cron: '30 18 * * *'  # 12:30 AM Dhaka
 
 permissions:
   contents: write
 
 jobs:
-  collect-replies:
+  nightly-summary:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,10 +28,16 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python collect_replies.py
 
-      - name: Commit and push changes
+      - name: Commit replies
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add replies.csv last_offset.txt
           git diff --staged --quiet || git commit -m "Update replies"
           git push
+
+      - name: Send chart
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python chart.py

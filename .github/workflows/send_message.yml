@@ -6,7 +6,7 @@ on:
     - cron: '0 0 * * *'    # Fajr   - 6:00 AM Dhaka
     - cron: '30 10 * * *'  # Zuhr   - 4:30 PM Dhaka
     - cron: '0 12 * * *'   # Asr    - 6:00 PM Dhaka
-    - cron: '30 13 * * *'  # Maghrib - 7:30 PM Dhaka
+    - cron: '0 13 * * *'  # Maghrib - 7:30 PM Dhaka
     - cron: '30 16 * * *'  # Isha   - 10:30 PM Dhaka
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
               github.event.schedule == '0 0 * * *'    && 'fajr'    ||
               github.event.schedule == '30 10 * * *'  && 'zuhr'    ||
               github.event.schedule == '0 12 * * *'   && 'asr'     ||
-              github.event.schedule == '30 13 * * *'  && 'maghrib' ||
+              github.event.schedule == '0 13 * * *'  && 'maghrib' ||
               'isha'
             }}
         run: python bot.py
