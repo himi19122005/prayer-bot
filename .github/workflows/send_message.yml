@@ -1,6 +1,7 @@
 name: Send Daily Telegram Message
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'    # Fajr   - 6:00 AM Dhaka
     - cron: '30 10 * * *'  # Zuhr   - 4:30 PM Dhaka
