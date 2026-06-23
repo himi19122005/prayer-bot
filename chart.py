@@ -44,7 +44,7 @@ async def main():
 
     # Draw the line chart
     plt.figure(figsize=(8, 5))
-    plt.plot(prayers, ratings, marker='o', linewidth=2, markersize=8, color='#2196F3')
+    plt.plot(prayers, ratings, marker='o', linewidth=2, markersize=8, color="#E9F321")
     plt.title(f"Prayer Ratings — {today.strftime('%B %d, %Y')}", fontsize=14, fontweight='bold')
     plt.xlabel("Prayer", fontsize=12)
     plt.ylabel("Rating (1-5)", fontsize=12)
@@ -61,7 +61,7 @@ async def main():
             await bot.send_photo(
                 chat_id=CHAT_ID,
                 photo=photo,
-                caption=f" Your prayer ratings for today!"
+                caption=f"Your prayer ratings for today!"
             )
 
 if __name__ == "__main__":
