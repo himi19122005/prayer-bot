@@ -2,9 +2,9 @@ import asyncio
 import os
 import csv
 from telegram import Bot
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-load_dotenv()  
+# load_dotenv()  
 
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
