@@ -74,12 +74,16 @@ async def main():
 
     # Draw chart
     plt.figure(figsize=(8, 5))
+<<<<<<< HEAD
     plt.plot(answered_x, answered_y, marker='o', linewidth=2, markersize=8, color='#2196F3')
 
     # Mark missing prayers with a red X on the x axis
     for prayer in missed:
         plt.axvline(x=prayer, color='red', linestyle='--', alpha=0.4)
 
+=======
+    plt.plot(prayers, ratings, marker='o', linewidth=2, markersize=8, color='#2196F3')
+>>>>>>> parent of 904b8e2 (replaced collect and chart workflows with nightly summary)
     plt.title(f"Prayer Ratings — {today.strftime('%B %d, %Y')}", fontsize=14, fontweight='bold')
     plt.xlabel("Prayer", fontsize=12)
     plt.ylabel("Rating (1-5)", fontsize=12)
@@ -96,7 +100,11 @@ async def main():
             await bot.send_photo(
                 chat_id=CHAT_ID,
                 photo=photo,
+<<<<<<< HEAD
                 caption=f"Your prayer ratings for today!\n{missed_text}"
+=======
+                caption=f" Your prayer ratings for today!"
+>>>>>>> parent of 904b8e2 (replaced collect and chart workflows with nightly summary)
             )
 
 if __name__ == "__main__":
