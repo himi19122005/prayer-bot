@@ -1,0 +1,36 @@
+name: Collect Telegram Replies
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Every hour
+
+permissions:
+  contents: write
+
+jobs:
+  collect-replies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect replies
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python collect_replies.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add replies.csv last_offset.txt
+          git diff --staged --quiet || git commit -m "Update replies"
+          git push

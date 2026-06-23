@@ -1,0 +1,37 @@
+name: Send Daily Telegram Message
+
+on:
+  schedule:
+    - cron: '0 0 * * *'    # Fajr   - 6:00 AM Dhaka
+    - cron: '30 10 * * *'  # Zuhr   - 4:30 PM Dhaka
+    - cron: '0 12 * * *'   # Asr    - 6:00 PM Dhaka
+    - cron: '30 13 * * *'  # Maghrib - 7:30 PM Dhaka
+    - cron: '30 16 * * *'  # Isha   - 10:30 PM Dhaka
+
+jobs:
+  send-message:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Send message
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          MESSAGE_SLOT: >-
+            ${{
+              github.event.schedule == '0 0 * * *'    && 'fajr'    ||
+              github.event.schedule == '30 10 * * *'  && 'zuhr'    ||
+              github.event.schedule == '0 12 * * *'   && 'asr'     ||
+              github.event.schedule == '30 13 * * *'  && 'maghrib' ||
+              'isha'
+            }}
+        run: python script.py
