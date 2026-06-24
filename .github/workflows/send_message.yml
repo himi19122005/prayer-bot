@@ -2,12 +2,11 @@ name: Send Daily Telegram Message
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *'    # Fajr   - 6:00 AM Dhaka
-    - cron: '30 10 * * *'  # Zuhr   - 4:30 PM Dhaka
-    - cron: '0 12 * * *'   # Asr    - 6:00 PM Dhaka
-    - cron: '0 13 * * *'  # Maghrib - 7:30 PM Dhaka
-    - cron: '30 16 * * *'  # Isha   - 10:30 PM Dhaka
+    inputs:
+      message_slot:
+        description: 'Which prayer'
+        required: true
+        default: 'fajr'
 
 jobs:
   send-message:
@@ -27,12 +26,5 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-          MESSAGE_SLOT: >-
-            ${{
-              github.event.schedule == '0 0 * * *'    && 'fajr'    ||
-              github.event.schedule == '30 10 * * *'  && 'zuhr'    ||
-              github.event.schedule == '0 12 * * *'   && 'asr'     ||
-              github.event.schedule == '0 13 * * *'  && 'maghrib' ||
-              'isha'
-            }}
+          MESSAGE_SLOT: ${{ github.event.inputs.message_slot }}
         run: python bot.py
