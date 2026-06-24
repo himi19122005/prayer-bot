@@ -15,7 +15,12 @@ DHAKA_TZ = timezone(timedelta(hours=6))
 REPLIES_FILE = "replies.csv"
 
 async def main():
-    today = datetime.now(DHAKA_TZ).date()
+    now = datetime.now(DHAKA_TZ)
+    # if running after midnight, look at yesterday's data
+    if now.hour < 6:
+        today = (now - timedelta(days=1)).date()
+    else:
+        today = now.date()
 
     ratings = []
     if os.path.exists(REPLIES_FILE):
