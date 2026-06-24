@@ -30,7 +30,7 @@ async def main():
                 ts = datetime.fromisoformat(row["timestamp"]).astimezone(DHAKA_TZ)
                 if ts.date() == today:
                     try:
-                        rating = int(row["message"].strip())
+                        rating = float(row["message"].strip())
                         if 1 <= rating <= 5:
                             ratings.append(rating)
                     except ValueError:
@@ -50,7 +50,7 @@ async def main():
     plt.xlabel("Prayer", fontsize=12)
     plt.ylabel("Rating (1-5)", fontsize=12)
     plt.ylim(0.5, 5.5)
-    plt.yticks([1, 2, 3, 4, 5])
+    plt.yticks([1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]) 
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.tight_layout()
     plt.savefig("chart.png", dpi=150)
