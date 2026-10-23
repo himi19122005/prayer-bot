@@ -229,7 +229,6 @@ def daily_report(ratings, d, out_dir):
     missing = [p for p, v in zip(PRAYERS, r) if v is None]
     if missing:
         lines.append("Not rated: " + ", ".join(missing))
-        lines.append(f"Missing {missing[-1]}? Send y<number> tomorrow.")
     return [(path, "\n".join(lines))]
 
 
