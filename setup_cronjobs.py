@@ -9,6 +9,8 @@ Running it again updates the same jobs, so you can change TIMES below and rerun.
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -38,9 +40,17 @@ def call(method, path, body=None):
         method=method,
         headers={"Authorization": f"Bearer {KEY}", "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        text = r.read().decode()
-        return json.loads(text) if text else {}
+    # cron-job.org allows only about one change per second, so pause and retry when told to slow down
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                text = r.read().decode()
+            time.sleep(1.5)
+            return json.loads(text) if text else {}
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or attempt == 4:
+                raise
+            time.sleep(5 * (attempt + 1))
 
 
 def schedule(hhmm):
@@ -50,7 +60,7 @@ def schedule(hhmm):
 
 
 def reminder_job(prayer, hhmm):
-    text = f"{prayer} reminder. Rate it when you're done (0 or 1-5)."
+    text = f"{prayer} reminder"
     url = (f"https://api.telegram.org/bot{TOKEN}/sendMessage?"
            + urllib.parse.urlencode({"chat_id": CHAT_ID, "text": text}))
     return {"title": PREFIX + prayer, "url": url, "enabled": True,
