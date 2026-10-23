@@ -1,4 +1,2 @@
-.env
+out/
 __pycache__/
-*.pyc
-chart.png

@@ -1,0 +1,40 @@
+name: prayer bot
+
+on:
+  schedule:
+    - cron: "0 7 * * *"    # 13:00 Dhaka: save replies (Telegram keeps them only 24h)
+    - cron: "45 17 * * *"  # 23:45 Dhaka: backup for the nightly report
+  workflow_dispatch:       # started by cron-job.org at 23:30, or by hand
+    inputs:
+      force:
+        description: "Send a report now: daily, weekly, monthly or all (leave empty for a normal run)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prayer-bot
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python bot.py
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          FORCE: ${{ inputs.force }}
+      - name: save data
+        run: |
+          git config user.name "prayer-bot"
+          git config user.email "prayer-bot@users.noreply.github.com"
+          git add messages.csv ratings.csv reported.json
+          git diff --cached --quiet || (git commit -m "update ratings" && git pull --rebase && git push)
