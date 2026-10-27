@@ -32,6 +32,7 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           FORCE: ${{ inputs.force }}
+          MODE: ${{ github.event.schedule == '0 7 * * *' && 'collect' || '' }}
       - name: save data
         run: |
           git config user.name "prayer-bot"

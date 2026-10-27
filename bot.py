@@ -292,7 +292,9 @@ def run(force):
     out_dir = os.path.join(HERE, "out")
     os.makedirs(out_dir, exist_ok=True)
 
-    night = now.hour >= 20 or now.hour < 6
+    # The 13:00 run only saves replies. GitHub can start it hours late, so it must never report.
+    collect_only = os.environ.get("MODE") == "collect"
+    night = not collect_only and (now.hour >= 23 or now.hour < 6)
     jobs = []
     if (night and rep.get("daily") != str(report_day)) or force in ("daily", "all"):
         jobs.append(("daily", daily_report))
