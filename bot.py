@@ -172,10 +172,6 @@ def api(method, data=None, files=None):
         return json.load(r)
 
 
-def send_text(text):
-    api("sendMessage", {"chat_id": CHAT_ID, "text": text})
-
-
 def send_photo(path, caption):
     api("sendPhoto", {"chat_id": CHAT_ID, "caption": caption}, {"photo": path})
 
@@ -275,16 +271,10 @@ def run(force):
     if not TOKEN or not CHAT_ID:
         sys.exit("Set TELEGRAM_TOKEN and CHAT_ID.")
     msgs = load_messages()
-    new = fetch_new(msgs)
-    msgs += new
+    msgs += fetch_new(msgs)
     save_messages(msgs)
-    ratings, notes = parse(msgs)
+    ratings, _ = parse(msgs)
     save_ratings(ratings)
-
-    # tell the user what happened to their new messages, in one message
-    lines = [line for uid, _, _ in new for line in notes.get(uid, [])]
-    if lines:
-        send_text("Recorded:\n" + "\n".join(lines))
 
     now = datetime.now(DHAKA)
     report_day = now.date() if now.hour >= 6 else now.date() - timedelta(days=1)

@@ -18,12 +18,12 @@ Just send numbers. They fill today's prayers in order: Fajr, Dhuhr, Asr, Maghrib
 | `y2` then `y3` | yesterday's Maghrib = 2, Isha = 3 (if those two were missing) |
 | `0` | allowed, never red, not counted in averages |
 | `undo` | removes the last rating you sent |
-| a 6th number in a day | ignored, with a warning. Use `undo` first. |
-| `y3` when yesterday is full | ignored, with a warning |
-| `7`, `0.5`, words | ignored, with a warning |
+| a 6th number in a day | ignored. Use `undo` first. |
+| `y3` when yesterday is full | ignored |
+| `7`, `0.5`, words | ignored |
 
 A rating from 1 up to (not including) 2 counts as "a 1" and is shown in red.
-Confirmations and warnings come at 13:00 and 23:30, not instantly.
+The bot saves your ratings silently. Check the nightly report to see what was recorded.
 
 ## Reminder times (Dhaka, all year)
 
