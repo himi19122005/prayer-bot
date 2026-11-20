@@ -21,6 +21,8 @@ from datetime import date, datetime, timedelta, timezone
 
 PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
 DHAKA = timezone(timedelta(hours=6))
+NIGHT_START = date(2026, 11, 20)  # y/n answers for the night prayer count from this day on
+YES, NO = ("y", "yes"), ("n", "no")
 HERE = os.path.dirname(os.path.abspath(__file__))
 MESSAGES_CSV = os.path.join(HERE, "messages.csv")
 RATINGS_CSV = os.path.join(HERE, "ratings.csv")
@@ -60,10 +62,12 @@ def parse(messages):
     """Turn the message log into ratings.
 
     messages: list of (update_id, unix_ts, text) in the order they were sent.
-    Returns (ratings, notes) where ratings is {date: [r0..r4 or None]} and
-    notes is {update_id: [text lines to tell the user]}.
+    Returns (ratings, night, notes) where ratings is {date: [r0..r4 or None]},
+    night is {date: True/False} for the night prayer (the last answer of the day wins)
+    and notes is {update_id: [text lines to tell the user]}.
     """
     ratings = {}
+    night = {}
     history = []  # (date, slot) of every accepted rating, for undo
     notes = {}
 
@@ -86,10 +90,15 @@ def parse(messages):
             out.append(f"Undone: {PRAYERS[i]} {d:%d %b} ({fmt(old)}) removed.")
             continue
 
-        # "y 3" -> "y3", then split on spaces / commas so "3 4 5" also works
-        clean = re.sub(r"\by\s+", "y", clean)
+        # "y 3" -> "y3", then split on spaces / commas so "3 4 5" also works.
+        # A "y" with no number after it is a yes for the night prayer.
+        clean = re.sub(r"\by\s+(?=[\d.])", "y", clean)
         for tok in re.split(r"[\s,]+", clean):
             if not tok:
+                continue
+            if tok in YES + NO and day >= NIGHT_START:
+                night[day] = tok in YES
+                out.append(f"Night prayer {day:%d %b}: {'yes' if night[day] else 'no'}")
                 continue
             target, label, raw = day, "today", tok
             if tok.startswith("y"):
@@ -109,7 +118,7 @@ def parse(messages):
             s[i] = v
             history.append((target, i))
             out.append(f"{PRAYERS[i]} {target:%d %b}: {fmt(v)}")
-    return ratings, notes
+    return ratings, night, notes
 
 
 # ---------- storage ----------
@@ -128,13 +137,15 @@ def save_messages(msgs):
         w.writerows(msgs)
 
 
-def save_ratings(ratings):
+def save_ratings(ratings, night):
     with open(RATINGS_CSV, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["date", "prayer", "rating"])
-        for d in sorted(ratings):
-            for p, r in zip(PRAYERS, ratings[d]):
+        for d in sorted(set(ratings) | set(night)):
+            for p, r in zip(PRAYERS, ratings.get(d, [None] * 5)):
                 w.writerow([d.isoformat(), p, "" if r is None else fmt(r)])
+            if d in night:
+                w.writerow([d.isoformat(), "Night", "yes" if night[d] else "no"])
 
 
 def load_reported():
@@ -216,48 +227,60 @@ def month_days(d):
     return [first + timedelta(days=i) for i in range((nxt - first).days)]
 
 
-def daily_report(ratings, d, out_dir):
+def night_summary(answers):
+    """answers: list of True / False / None. The night prayer never touches any rating numbers."""
+    yes, no = answers.count(True), answers.count(False)
+    return f"Night prayer: {yes} yes, {no} no, {len(answers) - yes - no} no answer"
+
+
+def daily_report(ratings, night, d, out_dir):
     import charts
     r = day_ratings(ratings, d)
+    n = night.get(d)
     path = os.path.join(out_dir, f"daily_{d}.png")
-    charts.daily_chart(d, r, path)
+    charts.daily_chart(d, r, n, path)
     lines = [f"Daily report, {d:%a %d %b %Y}", f"Average: {fmt_avg(avg(r))}"]
     missing = [p for p, v in zip(PRAYERS, r) if v is None]
     if missing:
         lines.append("Not rated: " + ", ".join(missing))
+    lines.append("Night prayer: " + {True: "yes", False: "no", None: "no answer"}[n])
     return [(path, "\n".join(lines))]
 
 
-def weekly_report(ratings, friday, out_dir):
+def weekly_report(ratings, night, friday, out_dir):
     import charts
     days = week_days(friday)
     grid = [day_ratings(ratings, d) for d in days]
+    nights = [night.get(d) for d in days]
     p1 = os.path.join(out_dir, f"weekly_lines_{friday}.png")
     p2 = os.path.join(out_dir, f"weekly_days_{friday}.png")
     charts.weekly_lines(days, grid, p1)
-    charts.weekly_days(days, grid, p2)
+    charts.weekly_days(days, grid, nights, p2)
     red_days = sum(any(is_red(v) for v in r) for r in grid)
     per = [avg([r[i] for r in grid]) for i in range(5)]
     cap1 = (f"Weekly report, {days[0]:%d %b} - {days[-1]:%d %b}\n"
             + "\n".join(f"{p}: {fmt_avg(a)}" for p, a in zip(PRAYERS, per))
             + f"\nOverall: {fmt_avg(avg([v for r in grid for v in r]))}")
-    cap2 = f"{red_days} of 7 days had a 1 (a rating from 1 to below 2) in at least one prayer."
+    cap2 = (f"{red_days} of 7 days had a 1 (a rating from 1 to below 2) in at least one prayer.\n"
+            + night_summary(nights))
     return [(p1, cap1), (p2, cap2)]
 
 
-def monthly_report(ratings, d, out_dir):
+def monthly_report(ratings, night, d, out_dir):
     import charts
     days = month_days(d)
     grid = [day_ratings(ratings, x) for x in days]
+    nights = [night.get(x) for x in days]
     path = os.path.join(out_dir, f"monthly_{d:%Y-%m}.png")
-    charts.monthly_heatmap(days, grid, path)
+    charts.monthly_heatmap(days, grid, nights, path)
     per = [avg([r[i] for r in grid]) for i in range(5)]
     red_days = sum(any(is_red(v) for v in r) for r in grid)
     unrated = sum(v is None for r in grid for v in r)
     cap = (f"Monthly report, {d:%B %Y}\n"
            + "\n".join(f"{p}: {fmt_avg(a)}" for p, a in zip(PRAYERS, per))
            + f"\nOverall: {fmt_avg(avg([v for r in grid for v in r]))}"
-           + f"\nDays with a 1: {red_days}\nPrayers not rated: {unrated}")
+           + f"\nDays with a 1: {red_days}\nPrayers not rated: {unrated}\n"
+           + night_summary(nights))
     return [(path, cap)]
 
 
@@ -273,8 +296,8 @@ def run(force):
     msgs = load_messages()
     msgs += fetch_new(msgs)
     save_messages(msgs)
-    ratings, _ = parse(msgs)
-    save_ratings(ratings)
+    ratings, night, _ = parse(msgs)
+    save_ratings(ratings, night)
 
     now = datetime.now(DHAKA)
     report_day = now.date() if now.hour >= 6 else now.date() - timedelta(days=1)
@@ -297,7 +320,7 @@ def run(force):
         d = report_day
         if name == "weekly" and d.weekday() != 4:  # forced: use the last Friday
             d -= timedelta(days=(d.weekday() - 4) % 7)
-        for path, caption in fn(ratings, d, out_dir):
+        for path, caption in fn(ratings, night, d, out_dir):
             send_photo(path, caption)
         if night:
             rep[name] = str(report_day)
@@ -325,7 +348,7 @@ def selftest():
         (16, ts(2026, 10, 3, 22), "4"),             # today full
         (17, ts(2026, 10, 3, 22, 1), "/start"),     # ignored silently
     ]
-    ratings, notes = parse(msgs)
+    ratings, night, notes = parse(msgs)
     d = date(2026, 10, 1)
     expect = {
         d: [3, 4.5, 2, 5, 1.5],
@@ -341,6 +364,24 @@ def selftest():
     assert any("already has 5" in n for n in notes[16])
     assert notes[17] == []
     assert is_red(1) and is_red(1.9) and not is_red(2) and not is_red(0)
+    assert night == {}
+
+    # night prayer: y / n, never a rating
+    msgs = [
+        (20, ts(2026, 10, 15, 9), "no"),             # before NIGHT_START: not an answer
+        (21, ts(2026, 11, 21, 5), "y"),              # night yes
+        (22, ts(2026, 11, 21, 5, 1), "4"),           # Fajr
+        (23, ts(2026, 11, 21, 9), "N"),              # changed mind: night no
+        (24, ts(2026, 11, 22, 5), "y 3"),            # y + number is still yesterday
+        (25, ts(2026, 11, 22, 5, 1), "yes 4.5"),     # night yes, then Fajr
+        (26, ts(2026, 11, 23, 22), "5 4 3 4 5 n"),   # full day and a no
+    ]
+    ratings, night, notes = parse(msgs)
+    assert any("Not a rating: no" in n for n in notes[20])
+    assert night == {date(2026, 11, 21): False, date(2026, 11, 22): True, date(2026, 11, 23): False}, night
+    assert ratings[date(2026, 11, 21)] == [4, 3, None, None, None], ratings
+    assert ratings[date(2026, 11, 22)] == [4.5, None, None, None, None], ratings
+    assert ratings[date(2026, 11, 23)] == [5, 4, 3, 4, 5], ratings
     print("parser: all checks passed")
     for uid in sorted(notes):
         for n in notes[uid]:
@@ -350,7 +391,11 @@ def selftest():
     import random
     random.seed(4)
     fake = {}
+    fake_night = {}
     for day in month_days(date(2026, 10, 1)):
+        r = random.random()
+        if r < 0.85:
+            fake_night[day] = r < 0.6
         row = [random.choice([2.5, 3, 3.5, 3.5, 4, 4, 4.5, 4.5, 5]) for _ in PRAYERS]
         if random.random() < 0.25:
             row[random.randrange(5)] = random.choice([1, 1.5])
@@ -361,9 +406,9 @@ def selftest():
         fake[day] = row
     out_dir = os.path.join(HERE, "out")
     os.makedirs(out_dir, exist_ok=True)
-    for path, cap in (daily_report(fake, date(2026, 10, 2), out_dir)
-                      + weekly_report(fake, date(2026, 10, 16), out_dir)
-                      + monthly_report(fake, date(2026, 10, 31), out_dir)):
+    for path, cap in (daily_report(fake, fake_night, date(2026, 10, 2), out_dir)
+                      + weekly_report(fake, fake_night, date(2026, 10, 16), out_dir)
+                      + monthly_report(fake, fake_night, date(2026, 10, 31), out_dir)):
         print(f"\n{path}\n{cap}")
 
 

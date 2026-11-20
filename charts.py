@@ -13,6 +13,7 @@ INK = "#2B2B33"
 MUTED = "#9A97A3"
 GRID = "#E9E5DF"
 RED = "#E5484D"
+GREEN = "#2E9E6B"
 EMPTY = "#D9D5CF"
 SCALE = ["#E5484D", "#F2994A", "#F2C94C", "#8BC34A", "#2E9E6B"]  # 1 .. 5
 LINE_COLORS = ["#5B6CF0", "#F2994A", "#2E9E6B", "#C2569B", "#2BA6C9"]
@@ -52,14 +53,25 @@ def _title(fig, title, subtitle):
     fig.text(0.06, 1 - 0.64 / h, subtitle, fontsize=11, color=MUTED, va="top")
 
 
+def _night_box(ax, x, y, w, h, answer, text, fontsize, rounding=0.12):
+    """Night prayer: green for yes, red for no, dashed outline for no answer."""
+    style = f"round,pad=0,rounding_size={rounding}"
+    if answer is None:
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle=style, fill=False, ec=EMPTY, lw=1.2, ls=(0, (4, 3))))
+    else:
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle=style, fc=GREEN if answer else RED, ec="none"))
+    ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=fontsize,
+            color=MUTED if answer is None else "white", fontweight="bold")
+
+
 def _save(fig, path):
     fig.savefig(path, facecolor=BG)
     plt.close(fig)
 
 
-def daily_chart(day, ratings, path):
-    fig, ax = _fig(8, 5)
-    fig.subplots_adjust(left=0.08, right=0.97, top=0.78, bottom=0.12)
+def daily_chart(day, ratings, night, path):
+    fig, ax = _fig(9, 5)
+    fig.subplots_adjust(left=0.07, right=0.97, top=0.78, bottom=0.12)
     vals = [r for r in ratings if r is not None and r != 0]
     avg = sum(vals) / len(vals) if vals else None
     _title(fig, f"{day:%A, %d %B}",
@@ -83,7 +95,12 @@ def daily_chart(day, ratings, path):
         ax.text(i, max(r, 0) + 0.15, f"{r:g}", ha="center", va="bottom",
                 fontsize=14, fontweight="bold", color=INK if r else MUTED)
 
-    ax.set_xlim(-0.6, 4.6)
+    # night prayer: yes / no only, before Fajr and set apart from the rated prayers
+    ax.axvline(-0.6, ymin=0.04, ymax=0.84, color=GRID, lw=1.5)
+    _night_box(ax, -1.2 - width / 2, 0, width, 2.2, night,
+               {True: "Yes", False: "No", None: "no\nanswer"}[night], 14 if night is not None else 10)
+
+    ax.set_xlim(-1.8, 4.6)
     ax.set_ylim(0, 5.7)
     ax.set_xticks(range(5), PRAYERS, fontsize=12)
     ax.set_yticks([])
@@ -112,9 +129,9 @@ def weekly_lines(days, grid, path):
     _save(fig, path)
 
 
-def weekly_days(days, grid, path):
-    fig, ax = _fig(9, 2.6)
-    fig.subplots_adjust(left=0.03, right=0.97, top=0.62, bottom=0.03)
+def weekly_days(days, grid, nights, path):
+    fig, ax = _fig(9, 3.0)
+    fig.subplots_adjust(left=0.03, right=0.97, top=0.66, bottom=0.03)
     red_days = [any(r is not None and 1 <= r < 2 for r in row) for row in grid]
     _title(fig, f"{sum(red_days)} of 7 days had a 1",
            "Red = at least one prayer rated from 1 to below 2")
@@ -138,18 +155,21 @@ def weekly_days(days, grid, path):
                         color="white", fontsize=16, fontweight="bold")
         else:
             ax.text(i + 0.5, 0.36, "no\nratings", ha="center", va="center", color=MUTED, fontsize=9.5)
+        n = nights[i]
+        _night_box(ax, i + 0.06, -0.30, 0.88, 0.24, n,
+                   {True: "Yes", False: "No", None: "-"}[n], 9.5, rounding=0.06)
 
     ax.set_xlim(0, 7)
-    ax.set_ylim(0, 1)
+    ax.set_ylim(-0.32, 1)
     ax.set_aspect("equal")
     ax.axis("off")
     _save(fig, path)
 
 
-def monthly_heatmap(days, grid, path):
+def monthly_heatmap(days, grid, nights, path):
     n = len(days)
-    fig, ax = _fig(13, 3.4)
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.70, bottom=0.10)
+    fig, ax = _fig(13, 3.8)
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.73, bottom=0.09)
     vals = [r for row in grid for r in row if r is not None and r != 0]
     avg = sum(vals) / len(vals) if vals else None
     red = sum(any(r is not None and 1 <= r < 2 for r in row) for row in grid)
@@ -170,10 +190,15 @@ def monthly_heatmap(days, grid, path):
             ax.text(x + 0.5, yy + 0.5, f"{r:g}", ha="center", va="center", fontsize=7.5,
                     color=INK if r == 0 or 2.5 <= r < 4 else "white")
 
+    # night prayer row, a little apart from the rated prayers
+    for x, a in enumerate(nights):
+        _night_box(ax, x + 0.08, -1.17, 0.84, 0.84, a,
+                   {True: "Y", False: "N", None: ""}[a], 7.5, rounding=0.15)
+
     ax.set_xlim(0, n)
-    ax.set_ylim(0, 5)
+    ax.set_ylim(-1.25, 5)
     ax.set_aspect("equal")
-    ax.set_yticks([4.5 - i for i in range(5)], PRAYERS, color=INK)
+    ax.set_yticks([4.5 - i for i in range(5)] + [-0.75], PRAYERS + ["Night"], color=INK)
     ax.set_xticks([i + 0.5 for i in range(n)], [f"{d.day}" for d in days], fontsize=8, color=MUTED)
     ax.tick_params(length=0)
     _save(fig, path)

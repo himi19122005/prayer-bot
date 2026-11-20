@@ -21,13 +21,19 @@ Just send numbers. They fill today's prayers in order: Fajr, Dhuhr, Asr, Maghrib
 | a 6th number in a day | ignored. Use `undo` first. |
 | `y3` when yesterday is full | ignored |
 | `7`, `0.5`, words | ignored |
+| `y` or `yes` | night prayer done today (green in reports) |
+| `n` or `no` | night prayer not done today (red in reports) |
 
 A rating from 1 up to (not including) 2 counts as "a 1" and is shown in red.
+
+The night prayer is only yes or no. It never changes averages, "days with a 1" or
+anything else. The last y/n of the day counts, so just send the other one to change it.
+`y` followed by a number (`y3`, `y 3`) still means yesterday's rating, not night prayer.
 The bot saves your ratings silently. Check the nightly report to see what was recorded.
 
 ## Reminder times (Dhaka, all year)
 
-Fajr 04:35, Dhuhr 12:15, Asr 16:40, Maghrib 18:00, Isha 19:25.
+Night prayer 04:30, Fajr 04:35, Dhuhr 12:15, Asr 16:40, Maghrib 18:00, Isha 19:25.
 These were picked from the full year of Dhaka prayer times so each reminder lands
 within about an hour of the prayer starting. Change them in `setup_cronjobs.py`.
 

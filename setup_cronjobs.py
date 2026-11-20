@@ -16,6 +16,7 @@ import urllib.request
 
 # Dhaka time, the same all year. Change and rerun if you want different times.
 TIMES = {
+    "Night prayer": "04:30",
     "Fajr": "04:35",
     "Dhuhr": "12:15",
     "Asr": "16:40",
