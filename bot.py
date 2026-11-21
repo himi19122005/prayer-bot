@@ -188,7 +188,11 @@ def send_photo(path, caption):
 
 
 def fetch_new(known):
-    """Get new messages from your chat. Telegram keeps them for 24 hours."""
+    """Get new messages from your chat. Telegram keeps them for 24 hours.
+
+    The offset comes from the messages already saved, so if a run crashes before
+    its data is committed, the next run simply gets the same messages again.
+    """
     offset = max((u for u, _, _ in known), default=0) + 1
     res = api("getUpdates", {"offset": offset, "timeout": 0})
     new = []
@@ -196,9 +200,6 @@ def fetch_new(known):
         m = u.get("message")
         if m and str(m["chat"]["id"]) == str(CHAT_ID) and "text" in m:
             new.append((u["update_id"], m["date"], m["text"]))
-        offset = u["update_id"] + 1
-    # confirm the updates so Telegram does not send them again
-    api("getUpdates", {"offset": offset, "timeout": 0})
     return new
 
 
@@ -307,23 +308,33 @@ def run(force):
 
     # The 13:00 run only saves replies. GitHub can start it hours late, so it must never report.
     collect_only = os.environ.get("MODE") == "collect"
-    night = not collect_only and (now.hour >= 23 or now.hour < 6)
-    jobs = []
-    if (night and rep.get("daily") != str(report_day)) or force in ("daily", "all"):
-        jobs.append(("daily", daily_report))
-    if (night and report_day.weekday() == 4 and rep.get("weekly") != str(report_day)) or force in ("weekly", "all"):
-        jobs.append(("weekly", weekly_report))
-    if (night and is_last_day_of_month(report_day) and rep.get("monthly") != str(report_day)) or force in ("monthly", "all"):
-        jobs.append(("monthly", monthly_report))
+    is_night = not collect_only and (now.hour >= 23 or now.hour < 6)
 
-    for name, fn in jobs:
-        d = report_day
-        if name == "weekly" and d.weekday() != 4:  # forced: use the last Friday
-            d -= timedelta(days=(d.weekday() - 4) % 7)
+    jobs = []  # (name, report function, day)
+    if is_night:
+        # catch up on up to 2 earlier nights whose report failed
+        start = report_day - timedelta(days=2)
+        if rep.get("daily"):
+            start = max(start, date.fromisoformat(rep["daily"]) + timedelta(days=1))
+        for i in range((report_day - start).days + 1):
+            d = start + timedelta(days=i)
+            jobs.append(("daily", daily_report, d))
+            if d.weekday() == 4 and rep.get("weekly", "") < str(d):
+                jobs.append(("weekly", weekly_report, d))
+            if is_last_day_of_month(d) and rep.get("monthly", "") < str(d):
+                jobs.append(("monthly", monthly_report, d))
+    last_friday = report_day - timedelta(days=(report_day.weekday() - 4) % 7)
+    for name, fn, d in [("daily", daily_report, report_day), ("weekly", weekly_report, last_friday),
+                        ("monthly", monthly_report, report_day)]:
+        if force in (name, "all") and (name, fn, d) not in jobs:
+            jobs.append((name, fn, d))
+
+    for name, fn, d in jobs:
         for path, caption in fn(ratings, night, d, out_dir):
             send_photo(path, caption)
-        if night:
-            rep[name] = str(report_day)
+        if is_night:
+            rep[name] = max(rep.get(name, ""), str(d))
+            save_reported(rep)  # after each report, so a later crash does not resend it
     save_reported(rep)
 
 
